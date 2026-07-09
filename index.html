@@ -45,7 +45,7 @@
   .star { color:#f5c518; font-size:13px; } .star.empty { color:#ddd; }
 
   .main { padding:0.75rem; }
-  .books-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; width:100%; }
+  .books-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; width:100%; }
   .book-card { background:white; display:flex; flex-direction:column; align-items:center; text-align:center; padding:0.7rem 0.4rem 0.65rem; gap:0.4rem; transition:background 0.1s; min-width:0; overflow:hidden; cursor:pointer; }
   .book-card:hover { background:#e8f9fb; }
   .book-card.selected { background:#e0f7fa; outline:2px solid var(--teal); }
@@ -79,6 +79,10 @@
     <option value="title">Title A–Z</option>
     <option value="title_desc">Title Z–A</option>
     <option value="author">Author A–Z</option>
+  </select>
+  <label>Genre</label>
+  <select id="genre-select">
+    <option value="">All Genres</option>
   </select>
   <div class="per-page-wrap">
     <label>Per page</label>
@@ -122,9 +126,13 @@ var filteredBooks = null;
 var page = 1, perPage = 60, sortMode = 'title';
 var selectedCard = null;
 
-var GENRE_PRIORITY = ['fiction','non-fiction','fantasy','science fiction','mystery',
-  'biography','history','adventure','children','young adult','middle grade','classic',
-  'horror','thriller','romance','graphic novel','comics','educational','science','poetry'];
+var GENRE_PRIORITY = ['fantasy','science fiction','dystopia','dystopian','mystery','thriller',
+  'horror','romance','historical fiction','crime','suspense','biography','memoir','autobiography',
+  'history','war','humor','graphic novel','graphic novels','comics','comic','poetry','fairy tales',
+  'fairy tale','short stories','adventure','politics','economics','business','self-help','philosophy',
+  'science','technology','mythology','folklore','cooking','young adult','middle grade',
+  "children's literature","children's fiction","children's books","children's",'children','juvenile',
+  'kids','classics','classic'];
 
 function getFirstTag(tags) {
   if (!tags || !tags.length) return '';
@@ -133,7 +141,36 @@ function getFirstTag(tags) {
       if (tags[j].toLowerCase() === GENRE_PRIORITY[i]) return tags[j];
     }
   }
+  for (var j=0;j<tags.length;j++) {
+    var lower = tags[j].toLowerCase();
+    if ((lower.endsWith(' fiction') || lower.endsWith(' stories')) && lower !== 'fiction' && lower !== 'non-fiction') return tags[j];
+  }
+  for (var j=0;j<tags.length;j++) {
+    if (tags[j].toLowerCase() === 'fiction' || tags[j].toLowerCase() === 'non-fiction') return tags[j];
+  }
   return tags[0];
+}
+
+var GENRE_COUNTS = {};
+ALL_BOOKS.forEach(function(b){
+  var g = getFirstTag(b.tags);
+  if (!g) return;
+  var key = g.toLowerCase();
+  if (!GENRE_COUNTS[key]) GENRE_COUNTS[key] = {label: g, count: 0};
+  GENRE_COUNTS[key].count++;
+});
+
+function populateGenreSelect() {
+  var sel = document.getElementById('genre-select');
+  var keys = Object.keys(GENRE_COUNTS).sort(function(a,b){
+    return GENRE_COUNTS[a].label.localeCompare(GENRE_COUNTS[b].label);
+  });
+  keys.forEach(function(key){
+    var opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = GENRE_COUNTS[key].label + ' (' + GENRE_COUNTS[key].count + ')';
+    sel.appendChild(opt);
+  });
 }
 
 function esc(s) {
@@ -155,6 +192,7 @@ function filterByAuthor(author) {
   books = filteredBooks.slice(); page = 1;
   document.getElementById('filter-label').innerHTML = 'Books by <strong>' + esc(author) + '</strong> (' + filteredBooks.length + ')';
   document.getElementById('filter-banner').classList.add('show');
+  document.getElementById('genre-select').value = '';
   render();
 }
 
@@ -164,12 +202,14 @@ function filterByGenre(genre) {
   books = filteredBooks.slice(); page = 1;
   document.getElementById('filter-label').innerHTML = 'Genre: <strong>' + esc(genre) + '</strong> (' + filteredBooks.length + ' books)';
   document.getElementById('filter-banner').classList.add('show');
+  document.getElementById('genre-select').value = genre.toLowerCase();
   render();
 }
 
 function clearFilter() {
   filteredBooks = null; books = ALL_BOOKS.slice(); page = 1;
   document.getElementById('filter-banner').classList.remove('show');
+  document.getElementById('genre-select').value = '';
   closeDetail(); render();
 }
 
@@ -306,9 +346,15 @@ function render() { sortBooks(); renderGrid(); renderPagination(); }
 
 document.getElementById('sort-select').addEventListener('change', function(e){ sortMode=e.target.value; page=1; render(); });
 document.getElementById('per-page-select').addEventListener('change', function(e){ perPage=parseInt(e.target.value); page=1; render(); });
+document.getElementById('genre-select').addEventListener('change', function(e){
+  var key = e.target.value;
+  if (key) filterByGenre(GENRE_COUNTS[key].label);
+  else clearFilter();
+});
 document.getElementById('detail-close').addEventListener('click', closeDetail);
 document.getElementById('filter-clear-btn').addEventListener('click', clearFilter);
 
+populateGenreSelect();
 render();
 </script>
 </body>
